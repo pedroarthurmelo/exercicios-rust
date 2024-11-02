@@ -1,140 +1,308 @@
-fn main(){
-    //ex1();
-    //ex2();
-    //ex4();
-    //ex5();
-    //ex6();
-    ex7();
+use std::io::{self, Write};
+
+// Estruturas básicas
+#[derive(Clone)]
+struct Permissao {
+    leitura: bool,
+    escrita: bool,
+    execucao: bool,
 }
-//1. Clonando e Movendo Strings: 
-//Escreva um programa que recebe duas strings como entrada. A primeira string deve ser movida para uma nova variável e a segunda string deve ser clonada para uma nova variável. Mostre os valores das strings originais e das novas após o movimento e clonagem. Explique a diferença entre mover e clonar.
-fn ex1(){
-    let string1 = String::from("teste");
-    let string2 = String::from("testando");
 
-    let nova_string1 = string1;
-    let nova_string2 = &string2;
-
-    println!("String 1: {}", nova_string1);
-    println!("String2 original: {}", string2);
-    println!("String 2: {}", nova_string2);
+#[derive(Clone)]
+struct Grupo {
+    nome: String,
+    gid: u16,
+    membros: Vec<Usuario>,
 }
-//2. Função de Soma com Empréstimo Imutável
-//Crie uma função soma que recebe uma slice de números inteiros como umareferência imutável. A função deve calcular e retornar a soma dos números. No programa principal, crie um vetor de inteiros e passe uma slice para a função. Após chamar a função, mostre o valor do vetor original. Dica: procure por vec!.
 
-fn soma(num: &[i32]) -> i32 {
-    let mut total = 0;
+#[derive(Clone)]
+struct Usuario {
+    nome: String,
+    uid: u16,
+    grupo: Grupo,
+}
 
-    for &num in num{
-        total += num;
+#[derive(Clone)]
+struct Arquivo {
+    nome: String,
+    tamanho: u64,
+    permissoes: (Permissao, Permissao, Permissao), // (user, group, other)
+    usuario: Usuario,
+    grupo: Grupo,
+}
+
+#[derive(Clone)]
+struct Diretorio {
+    nome: String,
+    arquivos: Vec<Arquivo>,
+    permissoes: (Permissao, Permissao, Permissao),
+    dono: Usuario,
+}
+
+// Implementações
+impl Permissao {
+    fn new(leitura: bool, escrita: bool, execucao: bool) -> Permissao {
+        Permissao {
+            leitura,
+            escrita,
+            execucao,
+        }
     }
-    total
-}
-fn ex2(){
-    let vetor = vec![1,2,3,4,5];
 
-    let resultado = soma(&vetor);
-
-    println!("SOMA DOS ELEMENTOS: {}", resultado);
-
-    println!("VETOR ORIGINAL: {:?}", vetor);
-}
-
-//3. Reatribuição e Ownership: Crie um programa que tenha duas variáveis que armazenam strings. Reatribua uma das strings para a outra variável e mostre o que acontece com o valor da variável original após a reatribuição.
-
-// fn ex3(){
-
-//     let string1 = String::from("ola");
-//     let string2: String = String::from("mundo");
-
-//     string1 = string2;
-//     println!("{}", string2);
-
-//     println!("{}", string1);
-
-// }
-
-//4. Empréstimo Mutável Escreva uma função adicionar_prefixo que recebe uma string mutável e adiciona o prefixo "Prefixo: " a essa string. No programa principal, crie uma string e passe-a para a função como referência mutável. Mostre o valor da string após a modificação.
-
-fn adicionar_prefixo(s: &mut String){
-    let nova_string = String::from("Prefixo: ") + s;
-
-    *s = nova_string;
-}
-fn ex4(){
-    let mut string = String::from("exemplo");
-    println!("Antes: {}", string);
-
-    adicionar_prefixo(&mut string);
-
-    println!("Depois: {}", string);
-}
-
-//5. Multiplicação de Vetores com Empréstimo Imutável Crie uma função que recebe dois vetores de números inteiros como referências imutáveis e retorna um novo vetor contendo os produtos dos elementos correspondentes. O programa principal deve criar dois vetores, passar ambos para a função, e depois imprimir o vetor resultante. Dica: procure por Vec<> e vec!
-
-
-fn ex5() {
-    // Criando dois vetores com números inteiros
-    let vetor1 = vec![1, 2, 3, 4];
-    let vetor2 = vec![5, 6, 7, 8];
-
-    // Chamando a função que multiplica os vetores
-    match multiplicar_vetores(&vetor1, &vetor2) {
-        Some(resultado) => println!("Resultado da multiplicação: {:?}", resultado),
-        None => println!("Os vetores devem ter o mesmo tamanho!"),
+    fn octal(&self) -> u8 {
+        let mut valor = 0;
+        if self.leitura { valor += 4; }
+        if self.escrita { valor += 2; }
+        if self.execucao { valor += 1; }
+        valor
     }
 }
 
-// Função que recebe duas referências imutáveis a vetores e retorna um novo vetor
-fn multiplicar_vetores(v1: &Vec<i32>, v2: &Vec<i32>) -> Option<Vec<i32>> {
-    // Verificando se os vetores têm o mesmo tamanho
-    if v1.len() != v2.len() {
-        return None; // Retorna None se os tamanhos forem diferentes
+impl Arquivo {
+    fn new(nome: String, tamanho: u64, uid: u16, gid: u16) -> Arquivo {
+        let permissao_padrao = Permissao::new(false, true, false);
+        let grupo = Grupo::new(String::from("default"), gid);
+        let usuario = Usuario::new(String::from("default"), uid, grupo.clone());
+        
+        Arquivo {
+            nome,
+            tamanho,
+            permissoes: (permissao_padrao.clone(), permissao_padrao.clone(), permissao_padrao),
+            usuario,
+            grupo,
+        }
     }
 
-    // Criando um novo vetor para armazenar os produtos
-    let mut resultado = Vec::new();
-
-    // Usando um loop com índices para acessar os elementos
-    for i in 0..v1.len() {
-        // Multiplicando os elementos correspondentes e adicionando ao vetor resultado
-        resultado.push(v1[i] * v2[i]);
+    fn alterar_permissao(&mut self, permissao: Permissao) {
+        self.permissoes.0 = permissao;
     }
 
-    // Retornando o vetor com os produtos dentro de Some
-    Some(resultado)
+    fn stat(&self) {
+        println!("Arquivo: {}", self.nome);
+        println!("Tamanho: {} bytes", self.tamanho);
+        println!("Permissões: {}{}{}", 
+            self.permissoes.0.octal(),
+            self.permissoes.1.octal(),
+            self.permissoes.2.octal()
+        );
+        println!("Usuário: {} ({})", self.usuario.nome, self.usuario.uid);
+        println!("Grupo: {} ({})", self.grupo.nome, self.grupo.gid);
+    }
 }
 
+impl Diretorio {
+    fn new(nome: String, permissao: (Permissao, Permissao, Permissao), dono: Usuario) -> Diretorio {
+        Diretorio {
+            nome,
+            arquivos: Vec::new(),
+            permissoes: permissao,
+            dono,
+        }
+    }
 
-//6. Número de Caracteres com Empréstimo Imutável Implemente uma função chamada contar_caracteres que recebe uma referência imutável para uma string e retorna o número de caracteres nela. No programa principal, crie uma string e chame a função, mostrando o resultado. Dica: procure por chars e count
+    fn adiciona_arquivo(&mut self, arquivo: Arquivo) {
+        self.arquivos.push(arquivo);
+    }
 
-fn ex6(){
-    let texto = String::from("teste");
+    fn remove_arquivo(&mut self, nome: String) {
+        self.arquivos.retain(|a| a.nome != nome);
+    }
 
-    let numero_de_caracteres = contar_caracteres(&texto);
-
-    println!("O número de caracteres é: {}", numero_de_caracteres);
-
+    fn listar_conteudo(&self) {
+        println!("Conteúdo do diretório {}:", self.nome);
+        for arquivo in &self.arquivos {
+            println!("- {}", arquivo.nome);
+        }
+    }
 }
 
-fn contar_caracteres(s: &String) -> usize{
-    s.chars().count()
+impl Usuario {
+    fn new(nome: String, uid: u16, grupo: Grupo) -> Usuario {
+        Usuario {
+            nome,
+            uid,
+            grupo,
+        }
+    }
+
+    fn adiciona_grupo(&mut self, grupo: Grupo) {
+        self.grupo = grupo;
+    }
+
+    fn remove_grupo(&mut self, _grupo: Grupo) {
+        // Implementação simplificada - apenas remove o grupo atual
+        self.grupo = Grupo::new(String::from("default"), 0);
+    }
+
+    fn listar_grupos(&self) {
+        println!("Grupo do usuário {}: {}", self.nome, self.grupo.nome);
+    }
 }
 
-//7. Split de String com Empréstimo Imutável Escreva uma função que recebe uma referência imutável para uma string e retorna um vetor de palavras que são divididas por espaço. No programa principal, crie uma string, passe-a para a função e mostre o vetor resultante. Dica: procure por split_whitspace e collect.
+impl Grupo {
+    fn new(nome: String, gid: u16) -> Grupo {
+        Grupo {
+            nome,
+            gid,
+            membros: Vec::new(),
+        }
+    }
 
-fn ex7(){
-    let texto = String::from("Ola mundo");
+    fn adiciona_membro(&mut self, usuario: Usuario) {
+        self.membros.push(usuario);
+    }
 
-    let palavras = dividir_em_palavras(&texto);
+    fn remove_membro(&mut self, usuario: Usuario) {
+        self.membros.retain(|u| u.nome != usuario.nome);
+    }
 
-    println!("As palavras são: {:?}", palavras);
+    fn listar_membros(&self) {
+        println!("Membros do grupo {}:", self.nome);
+        for membro in &self.membros {
+            println!("- {}", membro.nome);
+        }
+    }
 }
 
-fn dividir_em_palavras(s: &String) -> Vec<&str> {
-    s.split_whitespace().collect()
+// Funções auxiliares para o menu
+fn ler_input(prompt: &str) -> String {
+    print!("{}", prompt);
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
 }
 
-fn ex8(){
-    
+fn menu_principal() {
+    let mut diretorio = Diretorio::new(
+        String::from("root"),
+        (
+            Permissao::new(true, true, true),
+            Permissao::new(true, false, false),
+            Permissao::new(true, false, false)
+        ),
+        Usuario::new(
+            String::from("admin"),
+            0,
+            Grupo::new(String::from("admin"), 0)
+        )
+    );
+
+    loop {
+        println!("\n=== Menu Principal ===");
+        println!("1. Gerenciar Arquivos");
+        println!("2. Gerenciar Usuários");
+        println!("3. Gerenciar Grupos");
+        println!("4. Listar conteúdo do diretório");
+        println!("0. Sair");
+
+        match ler_input("Escolha uma opção: ").parse::<u32>() {
+            Ok(1) => menu_arquivos(&mut diretorio),
+            Ok(2) => menu_usuarios(),
+            Ok(3) => menu_grupos(),
+            Ok(4) => diretorio.listar_conteudo(),
+            Ok(0) => break,
+            _ => println!("Opção inválida!"),
+        }
+    }
+}
+
+fn menu_arquivos(diretorio: &mut Diretorio) {
+    loop {
+        println!("\n=== Menu Arquivos ===");
+        println!("1. Criar arquivo");
+        println!("2. Remover arquivo");
+        println!("3. Listar arquivos");
+        println!("4. Ver detalhes de arquivo (stat)");
+        println!("0. Voltar");
+
+        match ler_input("Escolha uma opção: ").parse::<u32>() {
+            Ok(1) => {
+                let nome = ler_input("Nome do arquivo: ");
+                let tamanho = ler_input("Tamanho (bytes): ").parse::<u64>().unwrap_or(0);
+                let arquivo = Arquivo::new(nome, tamanho, 1000, 1000);
+                diretorio.adiciona_arquivo(arquivo);
+                println!("Arquivo criado com sucesso!");
+            },
+            Ok(2) => {
+                let nome = ler_input("Nome do arquivo para remover: ");
+                diretorio.remove_arquivo(nome);
+                println!("Arquivo removido com sucesso!");
+            },
+            Ok(3) => diretorio.listar_conteudo(),
+            Ok(4) => {
+                let nome = ler_input("Nome do arquivo: ");
+                if let Some(arquivo) = diretorio.arquivos.iter().find(|a| a.nome == nome) {
+                    arquivo.stat();
+                } else {
+                    println!("Arquivo não encontrado!");
+                }
+            },
+            Ok(0) => break,
+            _ => println!("Opção inválida!"),
+        }
+    }
+}
+
+fn menu_usuarios() {
+    let mut usuarios: Vec<Usuario> = Vec::new();
+
+    loop {
+        println!("\n=== Menu Usuários ===");
+        println!("1. Criar usuário");
+        println!("2. Listar usuários");
+        println!("0. Voltar");
+
+        match ler_input("Escolha uma opção: ").parse::<u32>() {
+            Ok(1) => {
+                let nome = ler_input("Nome do usuário: ");
+                let uid = ler_input("UID: ").parse::<u16>().unwrap_or(1000);
+                let grupo = Grupo::new(String::from("users"), 1000);
+                usuarios.push(Usuario::new(nome, uid, grupo));
+                println!("Usuário criado com sucesso!");
+            },
+            Ok(2) => {
+                println!("Usuários cadastrados:");
+                for usuario in &usuarios {
+                    println!("- {} (UID: {})", usuario.nome, usuario.uid);
+                }
+            },
+            Ok(0) => break,
+            _ => println!("Opção inválida!"),
+        }
+    }
+}
+
+fn menu_grupos() {
+    let mut grupos: Vec<Grupo> = Vec::new();
+
+    loop {
+        println!("\n=== Menu Grupos ===");
+        println!("1. Criar grupo");
+        println!("2. Listar grupos");
+        println!("0. Voltar");
+
+        match ler_input("Escolha uma opção: ").parse::<u32>() {
+            Ok(1) => {
+                let nome = ler_input("Nome do grupo: ");
+                let gid = ler_input("GID: ").parse::<u16>().unwrap_or(1000);
+                grupos.push(Grupo::new(nome, gid));
+                println!("Grupo criado com sucesso!");
+            },
+            Ok(2) => {
+                println!("Grupos cadastrados:");
+                for grupo in &grupos {
+                    println!("- {} (GID: {})", grupo.nome, grupo.gid);
+                    grupo.listar_membros();
+                }
+            },
+            Ok(0) => break,
+            _ => println!("Opção inválida!"),
+        }
+    }
+}
+
+fn main() {
+    println!("Sistema de Arquivos em Rust");
+    menu_principal();
 }

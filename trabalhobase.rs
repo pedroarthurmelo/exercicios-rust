@@ -1,113 +1,60 @@
-/////////////////////Arquivo//////////////////////////
-struct Arquivo {
-    
-}
+use std::fmt::format;
 
-impl Arquivo{
-
-    fn new(){
-
-    }
-
-    fn alterar_permissao() {
-
-    }
-    
-    fn stat(){
-
-    }
-
-
-}
-/////////////////////Permissao//////////////////////////
 struct Permissao {
-    
+    leitura: bool,
+    escrita: bool,
+    execucao: bool,
 }
+
 impl Permissao {
-    
-    fn new() {
-
+    fn new(leitura: bool, escrita: bool, execucao: bool) -> Permissao {
+        Permissao {
+            leitura,
+            escrita,
+            execucao,
+        }
     }
 
-    fn octal(){
+    fn octal(&self) -> u8 {
+        let a: u8 = if self.escrita { 1 } else { 0 };
+        let b: u8 = if self.leitura { 1 } else { 0 };
+        let c: u8 = if self.execucao { 1 } else { 0 };
 
+        match (a, b, c) {
+            (0, 0, 0) => 0,
+            (0, 0, 1) => 1,
+            (0, 1, 0) => 2,
+            (0, 1, 1) => 3,
+            (1, 0, 0) => 4,
+            (1, 0, 1) => 5,
+            (1, 1, 0) => 6,
+            (1, 1, 1) => 7,
+            _ => 10,
+        }
     }
 
+    fn rwx(&self) -> String {
+        let r = if self.leitura { 'r' } else { '-' };
+        let w = if self.escrita { 'w' } else { '-' };
+        let x = if self.execucao { 'x' } else { '-' };
+
+        format!("{r}{w}{x}")
+    }
+
+    fn octal_e_rwx_total(dono: &Permissao, grupo: &Permissao, outros: &Permissao) -> (String, String) {
+        let octal = format!("{}{}{}", dono.octal(), grupo.octal(), outros.octal());
+        let rwx = format!("{}{}{}", dono.rwx(), grupo.rwx(), outros.rwx());
+
+        (octal, rwx)
+    }
 }
 
-/////////////////////Diretório//////////////////////////
-struct Diretorio{
-    
-}
-impl Diretorio {
+fn main() {
+    let dono = Permissao::new(true, true, true); // Exemplo: Permissões do dono: rwx
+    let grupo = Permissao::new(true, true, false); // Exemplo: Permissões do grupo: rw-
+    let outros = Permissao::new(true, true, true); // Exemplo: Permissões dos outros: --x
 
-    fn new(){
+    let (octal, rwx) = Permissao::octal_e_rwx_total(&dono, &grupo, &outros);
 
-    }
-
-    fn adiciona_arquivo(){
-
-    }
-
-    fn remove_arquivo(){
-
-    }
-
-    fn listar_conteudo(){
-
-    }
-
-}
-/////////////////////Usuario//////////////////////////
-struct Usuario {
-    
-}
-impl Usuario{
-
-    fn new(){
-
-    }
-
-    fn adiciona_grupo(){
-
-    }
-    
-    fn remove_grupo(){
-
-    }
-
-    fn listar_grupos(){
-
-    }
-
-}
-/////////////////////Grupo//////////////////////////
-struct Grupo {
-    
-}
-
-impl Grupo {
-
-    fn new(){
-
-    }
-
-    fn adiciona_membro(){
-
-    }
-
-    fn remove_membro(){
-
-    }
-
-    fn listar_grupos(){
-
-    }
-
-}
-
-
-
-fn main(){
-
+    println!("Permissões: ({}/{})", octal, rwx);
 }
